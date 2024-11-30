@@ -1,0 +1,20 @@
+[Unit]
+Description=Run Triton bot
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory={repo_path}
+ExecStart={poetry_path} run python {repo_path}/run.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=triton
+User={user}
+Group={user}
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
