@@ -102,3 +102,12 @@ make stop     # stop the service (systemd)
 make logs     # see the service logs (systemd)
 make update   # pull the latest version, reinstall and restart the service if needed (systemd)
 ```
+
+## What it looks like
+
+
+
+<p align="center">
+  <img src="images/screencap.jpg" alt="Imagen 1" width="40%"/>
+  <img src="images/screencap2.jpg" alt="Imagen 2" width="40%"/>
+</p>
