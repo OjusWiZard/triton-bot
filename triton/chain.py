@@ -166,9 +166,10 @@ def get_staking_status(
     mech_request_count = mech_contract.functions.getRequestsCount(safe_address).call()
 
     # Request count (last checkpoint)
-    mech_request_count_on_last_checkpoint = (
+    service_info = (
         staking_token_contract.functions.getServiceInfo(service_id).call()
-    )[2][1]
+    )[2]
+    mech_request_count_on_last_checkpoint = service_info[1] if service_info else 0
 
     # Request count (current epoch)
     mech_requests_this_epoch = (
