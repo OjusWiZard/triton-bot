@@ -1,14 +1,13 @@
 """Tools"""
 
 import os
-from pathlib import Path
 
-KEY_PASSWORD = os.getenv("KEY_PASSWORD")
+OPERATE_USER_PASSWORD = os.getenv("OPERATE_USER_PASSWORD")
 
 
 def escape_markdown_v2(text: str) -> str:
     """Markdown escape"""
-    special_chars = r"*_[]()~`>#+-=|{}.!\\"
+    special_chars = r"*_[]()~`>#+=|{}.!\\"
     return "".join(f"\\{char}" if char in special_chars else char for char in text)
 
 
@@ -25,16 +24,3 @@ def wei_to_olas(wei: int) -> str:
 def str_to_bool(value: str) -> bool:
     """Converts string to bool"""
     return str(value).lower() in ["true", "1", "yes"]
-
-
-def load_env_to_dict(path: Path):
-    """Load env vars into dict"""
-    env_vars = {}
-    with open(path, "r", encoding="utf-8") as file:
-        for line in file:
-            line = line.strip()
-            if line and line.startswith("#"):
-                continue
-            key, value = line.split("=", 1)
-            env_vars[key.strip()] = value.strip()
-    return env_vars

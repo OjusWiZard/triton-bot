@@ -33,14 +33,6 @@ update:
 	fi
 	$(MAKE) install
 
-.PHONY: encrypt
-encrypt:
-	python triton/key_manager.py -e
-
-.PHONY: decrypt
-decrypt:
-	python triton/key_manager.py -d
-
 # LINTERS
 # black: PEP8 code formatter
 # isort: import sorting
@@ -57,8 +49,8 @@ formatters:
 .PHONY: code-check
 code-check:
 	black --check run.py triton
-	isort --check run.py triton
-	darglint run.py triton
+	isort --profile black --check run.py triton
+	darglint --verbosity 2 run.py triton
 	flake8 run.py triton
 	pylint run.py triton
 	mypy run.py triton

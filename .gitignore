@@ -1,10 +1,12 @@
 
 .env
 
-.trader_runner/
+.operate/
 
 triton.log
 
 triton.service
 
 __pycache__/
+
+.vscode/

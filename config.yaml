@@ -1,2 +1,2 @@
-traders:
-  trader_alpha: /path/to/your/trader-quickstart
+operators:
+  agent1: /path/to/your/quickstart

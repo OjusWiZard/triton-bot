@@ -8,20 +8,17 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 python-telegram-bot = {extras = ["job-queue"], version = "^21.7"}
-safe-eth-py = "^5.8.0"
-web3 = "6.15.1"
-open-aea-ledger-ethereum = "^1.59.0"
-pyyaml = "^6.0.2"
+click = "^8.1.7"
+olas-operate-middleware = {version = "^0.6.0", python = ">=3.10,<3.12"}
+pytz = "^2025.2"
+
+[poetry.group.dev.dependencies]
 black = "^24.10.0"
 flake8 = "^7.1.1"
 isort = "^5.13.2"
 darglint = "^1.8.1"
 pylint = "^3.3.1"
 mypy = "^1.13.0"
-click = "^8.1.7"
-open-aea = "^1.60.0"
-open-aea-cli-ipfs = "^1.60.0"
-
 
 [build-system]
 requires = ["poetry-core"]

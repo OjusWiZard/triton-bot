@@ -20,9 +20,8 @@ Triton is a Telegram bot to handle staked Olas services. Triton can help you to:
 - Check empty slots on staking contracts
 - Claim your rewards (manual and automatic mode)
 - Withdraw your OLAS
-- Encrypt/decrypt your private keys
 
-Point triton to all your trader_quickstart folder locations (they have to contain the `.trader_runner` folder) and it will handle them.
+Point triton to all your trader_quickstart folder locations (they have to contain the `.operate` folder) and it will handle them.
 
 </br>
 <p align="center">
@@ -56,7 +55,7 @@ Point triton to all your trader_quickstart folder locations (they have to contai
     - `GNOSIS_RPC`: a Gnosis RPC.
     - `TELEGRAM_TOKEN`: your Telegram bot API token (get one from @BotFather on Telegram).
     - `CHAT_ID`: your Telegram chat id. Easiest way to get it is to open your session on Telegram web and checking the url while having "Saved messages" chat open.
-    - `KEY_PASSWORD`: optional, only needed if your private keys are password-protected.
+    - `OPERATE_USER_PASSWORD`: Password of the operator user account.
     - `COINGECKO_API_KEY`: optional, only needed to check your rewards' value.
     - `WITHDRAWAL_ADDRESS`: optional. An address to send your rewards to.
     - `AGENT_BALANCE_THRESHOLD`: if the agent balance goes lower than this, you will receive an alert.
@@ -65,6 +64,7 @@ Point triton to all your trader_quickstart folder locations (they have to contai
     - `AUTOCLAIM`: enable automatic claiming command (claims once per month). Defaults to false.
     - `AUTOCLAIM_DAY`: day of the month for the autoclaim task to run.
     - `AUTOCLAIM_HOUR_UTC`: UTC hour for the autoclaim task to run.
+    - `LOCAL_TIMEZONE`: Local timezone for the time shown in the alerts.
 
 
 4. Edit `config.yaml` and add the path to your trader_quickstart folders. Multiple instances can be added.
@@ -94,8 +94,6 @@ Point triton to all your trader_quickstart folder locations (they have to contai
 ## Useful commands
 
 ```bash
-make encrypt  # encrypt your private keys
-make decrypt  # decrypt your private keys
 make install  # install the service (systemd)
 make start    # start the service (systemd)
 make stop     # stop the service (systemd)

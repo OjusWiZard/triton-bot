@@ -9,9 +9,9 @@ from triton.tools import str_to_bool
 dotenv.load_dotenv(override=True)
 
 # Constants
-SAFE_SERVICE_URL_GNOSIS = "https://safe-transaction-gnosis-chain.safe.global"
-GNOSIS_CHAIN_ID = 100
-GNOSISSCAN_URL = "https://gnosisscan.io/address/{address}"
+GNOSISSCAN_URL = "https://gnosisscan.io"
+GNOSISSCAN_ADDRESS_URL = GNOSISSCAN_URL + "/address/{address}"
+GNOSISSCAN_TX_URL = GNOSISSCAN_URL + "/tx/{tx_hash}"
 AGENT_BALANCE_THRESHOLD = float(os.getenv("AGENT_BALANCE_THRESHOLD", "0.1"))
 SAFE_BALANCE_THRESHOLD = float(os.getenv("AGENT_BALANCE_THRESHOLD", "1"))
 AUTOCLAIM = str_to_bool(os.getenv("AUTOCLAIM", "false"))
@@ -19,6 +19,7 @@ MANUAL_CLAIM = str_to_bool(os.getenv("MANUAL_CLAIM", "false"))
 OLAS_TOKEN_ADDRESS_GNOSIS = "0xcE11e14225575945b8E6Dc0D4F2dD4C570f79d9f"
 AUTOCLAIM_DAY = int(os.getenv("AUTOCLAIM_DAY", "1"))
 AUTOCLAIM_HOUR_UTC = int(os.getenv("AUTOCLAIM_HOUR_UTC", "9"))
+LOCAL_TIMEZONE = os.getenv("LOCAL_TIMEZONE", "UTC")
 STAKING_CONTRACTS = {
     "Hobbyist (100 OLAS)": {
         "address": "0x389b46c259631acd6a69bde8b6cee218230bae8c",

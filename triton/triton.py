@@ -4,22 +4,33 @@ import asyncio
 import datetime
 import logging
 import os
+import typing as t
 from pathlib import Path
 
 import dotenv
 import pytz
 import yaml
+from operate.cli import OperateApp
+from operate.constants import OPERATE
+from operate.operate_types import Chain
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from triton.chain import get_olas_price, get_slots
-from triton.constants import (AGENT_BALANCE_THRESHOLD, AUTOCLAIM,
-                              AUTOCLAIM_DAY, AUTOCLAIM_HOUR_UTC,
-                              GNOSISSCAN_URL, MANUAL_CLAIM,
-                              SAFE_BALANCE_THRESHOLD)
-from triton.tools import escape_markdown_v2
-from triton.trader import Trader
+from triton.constants import (
+    AGENT_BALANCE_THRESHOLD,
+    AUTOCLAIM,
+    AUTOCLAIM_DAY,
+    AUTOCLAIM_HOUR_UTC,
+    GNOSISSCAN_ADDRESS_URL,
+    GNOSISSCAN_TX_URL,
+    LOCAL_TIMEZONE,
+    MANUAL_CLAIM,
+    SAFE_BALANCE_THRESHOLD,
+)
+from triton.service import TritonService
+from triton.tools import OPERATE_USER_PASSWORD, escape_markdown_v2
 
 logger = logging.getLogger("telegram_bot")
 
@@ -37,11 +48,16 @@ def run_triton() -> None:
     with open("config.yaml", "r", encoding="utf-8") as config_file:
         config = yaml.safe_load(config_file)
 
-    # Instantiate the traders
-    traders = {
-        trader_name: Trader(trader_name, Path(trader_path))
-        for trader_name, trader_path in config["traders"].items()
-    }
+    # Instantiate the services
+    services: t.Dict[str, TritonService] = {}
+    for operator_name, operate_path in config["operators"].items():
+        operate = OperateApp(Path(operate_path) / OPERATE)
+        operate.password = OPERATE_USER_PASSWORD
+        for service in operate.service_manager()._get_all_services():
+            services[f"{operator_name}-{service.service_config_id}"] = TritonService(
+                operate=operate,
+                service_config_id=service.service_config_id,
+            )
 
     # Commands
     async def staking_status(
@@ -49,38 +65,40 @@ def run_triton() -> None:
     ) -> None:
         messages = []
         total_rewards = 0
-        for trader_name, trader in traders.items():
-            status = trader.get_staking_status()
+        for service_name, service in services.items():
+            status = service.get_staking_status()
             total_rewards += float(status["accrued_rewards"].split(" ")[0])
             messages.append(
-                f"[{trader_name}] {status['accrued_rewards']} [{status['mech_requests_this_epoch']}/{status['required_mech_requests']}]\nNext epoch: {status['epoch_end']}"
+                f"[{service_name}] {status['accrued_rewards']} [{status['mech_requests_this_epoch']}/{status['required_mech_requests']}]\nNext epoch: {status['epoch_end']}"
             )
 
         olas_price = get_olas_price()
         rewards_value = total_rewards * olas_price if olas_price else None
         message = f"Total rewards = {total_rewards:.2f} OLAS"
         if rewards_value:
-            message += f" [€{rewards_value:.2f}]"
+            message += f" [${rewards_value:.2f}]"
         messages.append(message)
 
         await update.message.reply_text(text=("\n\n").join(messages))
 
     async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         messages = []
-        for trader_name, trader in traders.items():
-            balances = trader.check_balance()
-            agent_native_balance = balances["agent_native_balance"]
-            safe_native_balance = balances["safe_native_balance"]
-            safe_olas_balance = balances["safe_olas_balance"]
-            operator_native_balance = balances["operator_native_balance"]
+        for service_name, service in services.items():
+            balances = service.check_balance()
+            agent_native_balance = balances["agent_eoa_native_balance"]
+            safe_native_balance = balances["service_safe_native_balance"]
+            safe_olas_balance = balances["service_safe_olas_balance"]
+            master_eoa_native_balance = balances["master_eoa_native_balance"]
+            master_safe_native_balance = balances["master_safe_native_balance"]
 
             message = (
                 r"\["
-                + escape_markdown_v2(trader_name)
+                + escape_markdown_v2(service_name)
                 + r"]"
-                + f"\n[Agent]({GNOSISSCAN_URL.format(address=trader.agent_address)}) = {agent_native_balance:.2f} xDAI"
-                + f"\n[Safe]({GNOSISSCAN_URL.format(address=trader.service_safe_address)}) = {safe_native_balance:.2f} xDAI  {safe_olas_balance:.2f} OLAS"
-                + f"\n[Operator]({GNOSISSCAN_URL.format(address=trader.operator_address)}) = {operator_native_balance:.2f} xDAI"
+                + f"\n[Agent EOA]({GNOSISSCAN_ADDRESS_URL.format(address=service.agent_address)}) = {agent_native_balance:.2f} xDAI"
+                + f"\n[Service Safe]({GNOSISSCAN_ADDRESS_URL.format(address=service.service_safe)}) = {safe_native_balance:.2f} xDAI  {safe_olas_balance:.2f} OLAS"
+                + f"\n[Master EOA]({GNOSISSCAN_ADDRESS_URL.format(address=service.master_wallet.crypto.address)}) = {master_eoa_native_balance:.2f} xDAI"
+                + f"\n[Master Safe]({GNOSISSCAN_ADDRESS_URL.format(address=service.master_wallet.safes[Chain.from_string(service.service.home_chain)])}) = {master_safe_native_balance:.2f} xDAI"
             )
 
             messages.append(message)
@@ -99,10 +117,13 @@ def run_triton() -> None:
             return
 
         messages = []
-        for trader_name, trader in traders.items():
-            trader.claim_rewards()
+        for service_name, service in services.items():
+            tx_hash = service.claim_rewards()
+            if not tx_hash:
+                continue
+
             messages.append(
-                f"[{trader_name}] Sent claim transaction. Rewards will be sent to the Safe."
+                f"[{service_name}] Sent the [claim transaction]({GNOSISSCAN_TX_URL.format(tx_hash=tx_hash)}). Rewards will be sent to the Service Safe."
             )
 
         await update.message.reply_text(
@@ -112,18 +133,18 @@ def run_triton() -> None:
     async def withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Withdraw rewards"""
         messages = []
-        for trader_name, trader in traders.items():
-            ok, value = trader.withdraw_rewards()
+        for service_name, service in services.items():
+            tx_hash, value = service.withdraw_rewards()
             message = (
                 r"\["
-                + escape_markdown_v2(trader_name)
+                + escape_markdown_v2(service_name)
                 + r"] "
-                + f"Sent withdrawal transaction. €{value:.2f} of OLAS sent from the Safe to [{trader.withdrawal_address}]({GNOSISSCAN_URL.format(address=trader.withdrawal_address)}) #withdraw"
-                if ok
+                + f"Sent the [withdrawal transaction]({GNOSISSCAN_TX_URL.format(tx_hash=tx_hash)}). {value:.2f} OLAS sent from the Service Safe to [{service.withdrawal_address}]({GNOSISSCAN_ADDRESS_URL.format(address=service.withdrawal_address)}) #withdraw"
+                if tx_hash
                 else r"\["
-                + escape_markdown_v2(trader_name)
+                + escape_markdown_v2(service_name)
                 + r"] "
-                + "Cannot withdraw rewards (recipient not set)"
+                + "Cannot withdraw rewards"
             )
 
             messages.append(message)
@@ -157,8 +178,8 @@ def run_triton() -> None:
         message = ""
         for job in jobs:
             next_execution = job.next_t.astimezone(
-                pytz.timezone("Europe/Madrid")
-            ).strftime("%Y-%m-%d %H:%M:%S")
+                pytz.timezone(LOCAL_TIMEZONE)
+            ).strftime("%Y-%m-%d %H:%M:%S %Z")
             message += f"• {job.name}: {next_execution}\n"
 
         await update.message.reply_text(message)
@@ -173,13 +194,13 @@ def run_triton() -> None:
 
     async def balance_check(context: ContextTypes.DEFAULT_TYPE):
         logger.info("Running balance check task")
-        for trader in traders.values():
-            balances = trader.check_balance()
-            agent_native_balance = balances["agent_native_balance"]
-            safe_native_balance = balances["safe_native_balance"]
+        for service_name, triton_service in services.items():
+            balances = triton_service.check_balance()
+            agent_native_balance = balances["agent_eoa_native_balance"]
+            safe_native_balance = balances["service_safe_native_balance"]
 
             if agent_native_balance < AGENT_BALANCE_THRESHOLD:
-                message = f"[{trader.name}] [Agent]({GNOSISSCAN_URL.format(address=trader.agent_address)}) balance is {agent_native_balance:.2f} xDAI"
+                message = f"[{service_name}] [Agent EOA]({GNOSISSCAN_ADDRESS_URL.format(address=triton_service.agent_address)}) balance is {agent_native_balance:.2f} xDAI"
                 await context.bot.send_message(
                     chat_id=CHAT_ID,
                     text=message,
@@ -188,7 +209,7 @@ def run_triton() -> None:
                 )
 
             if safe_native_balance < SAFE_BALANCE_THRESHOLD:
-                message = f"[{trader.name}] [Safe]({GNOSISSCAN_URL.format(address=trader.service_safe_address)}) balance is {safe_native_balance:.2f} xDAI"
+                message = f"[{service_name}] [Service Safe]({GNOSISSCAN_ADDRESS_URL.format(address=triton_service.service_safe)}) balance is {safe_native_balance:.2f} xDAI"
                 await context.bot.send_message(
                     chat_id=CHAT_ID,
                     text=message,
@@ -221,25 +242,25 @@ def run_triton() -> None:
         messages = []
 
         # Claim
-        for trader in traders.values():
-            trader.claim_rewards()
+        for service in services.values():
+            service.claim_rewards()
 
         # Wait for confirmation
         await asyncio.sleep(10)
 
         # Withdraw
-        for trader in traders.values():
-            ok, value = trader.withdraw_rewards()
+        for service_name, service in services.items():
+            tx_hash, value = service.withdraw_rewards()
             message = (
                 r"\["
-                + escape_markdown_v2(trader.name)
+                + escape_markdown_v2(service_name)
                 + r"] "
-                + f"(Autoclaim) Sent #withdraw transaction. €{value:.2f} of OLAS sent from the Safe to [{trader.withdrawal_address}]({GNOSISSCAN_URL.format(address=trader.withdrawal_address)})"
-                if ok
+                + f"(Autoclaim) Sent the [withdrawal transaction]({GNOSISSCAN_TX_URL.format(tx_hash=tx_hash)}). {value:.2f} OLAS sent from the Safe to [{service.withdrawal_address}]({GNOSISSCAN_ADDRESS_URL.format(address=service.withdrawal_address)}) #withdraw"
+                if tx_hash
                 else r"\["
-                + escape_markdown_v2(trader.name)
+                + escape_markdown_v2(service_name)
                 + r"] "
-                + "(Autoclaim) Cannot withdraw rewards (recipient not set)"
+                + "(Autoclaim) Cannot withdraw rewards"
             )
 
             messages.append(message)
