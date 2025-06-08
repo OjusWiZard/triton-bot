@@ -27,10 +27,11 @@ from triton.constants import (
     GNOSISSCAN_TX_URL,
     LOCAL_TIMEZONE,
     MANUAL_CLAIM,
+    OPERATE_USER_PASSWORD,
     SAFE_BALANCE_THRESHOLD,
 )
 from triton.service import TritonService
-from triton.tools import OPERATE_USER_PASSWORD, escape_markdown_v2
+from triton.tools import escape_markdown_v2
 
 logger = logging.getLogger("telegram_bot")
 

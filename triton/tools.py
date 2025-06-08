@@ -1,9 +1,5 @@
 """Tools"""
 
-import os
-
-OPERATE_USER_PASSWORD = os.getenv("OPERATE_USER_PASSWORD")
-
 
 def escape_markdown_v2(text: str) -> str:
     """Markdown escape"""
