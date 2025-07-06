@@ -33,7 +33,7 @@ Point triton to all your trader_quickstart folder locations (they have to contai
 1. Clone the repo:
 
     ```bash
-    git clone git@github.com:dvilelaf/triton-bot.git
+    git clone git@github.com:OjusWiZard/triton-bot.git
     cd triton
     ```
 
