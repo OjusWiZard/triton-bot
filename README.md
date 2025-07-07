@@ -75,7 +75,7 @@ Point triton to all your trader_quickstart folder locations (they have to contai
 1. Copy the env file:
 
     ```bash
-    python run.py
+    poetry run python run.py
     ```
 
 ## Run Triton as a systemd service
