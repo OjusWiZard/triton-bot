@@ -10,6 +10,7 @@ import pytz
 import requests
 from web3 import Web3
 from web3.contract import Contract
+from web3.exceptions import ABIFunctionNotFound
 
 from triton.constants import (
     LOCAL_TIMEZONE,
@@ -56,15 +57,29 @@ def get_olas_balance(address: str):
     return olas_balance
 
 
+def get_mech_request_count(
+    mech_contract_address: str,
+    requester_address: str,
+) -> int:
+    """Get the number of requests made by a requester to a mech"""
+    mech_contract = load_contract(mech_contract_address, "mech", has_abi_key=False)
+    try:
+        mech_request_count = mech_contract.functions.mapRequestsCounts(requester_address).call()
+    except (ABIFunctionNotFound, ValueError):
+        # Use mapRequestCounts for newer mechs
+        mech_request_count = mech_contract.functions.mapRequestCounts(requester_address).call()
+
+    return mech_request_count
+
+
 def get_staking_status(
     mech_contract_address: str,
     staking_token_address: str,
     activity_checker_address: str,
-    service_id: str,
+    service_id: int,
     safe_address: str,
 ) -> dict:
     """Get the staking status"""
-    mech_contract = load_contract(mech_contract_address, "mech", has_abi_key=False)
     staking_token_contract = load_contract(staking_token_address, "staking_token")
     activity_checker_contract = load_contract(activity_checker_address, "mech_activity")
 
@@ -73,7 +88,10 @@ def get_staking_status(
     accrued_rewards = wei_to_olas(service_info[3])
 
     # Request count (total)
-    mech_request_count = mech_contract.functions.getRequestsCount(safe_address).call()
+    mech_request_count = get_mech_request_count(
+        mech_contract_address=mech_contract_address,
+        requester_address=safe_address,
+    )
 
     # Request count (last checkpoint)
     service_info = (staking_token_contract.functions.getServiceInfo(service_id).call())[
