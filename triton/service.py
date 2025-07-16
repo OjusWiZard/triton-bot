@@ -175,7 +175,7 @@ class TritonService:
                 service_config_id=self.service.service_config_id,
                 chain=self.service.home_chain,
             )
-            return f"0x{tx_hash.hex()}"
+            return tx_hash.hex()
         except Exception:
             self.logger.error(f"Failed to claim rewards. {traceback.format_exc()}")
 
