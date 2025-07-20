@@ -52,7 +52,7 @@ def run_triton() -> None:
         operate = OperateApp(Path(operate_path) / OPERATE)
         operate.password = OPERATE_USER_PASSWORD
         for service in operate.service_manager()._get_all_services():
-            services[f"{operator_name}-{service.service_config_id}"] = TritonService(
+            services[f"{operator_name}-{service.name}"] = TritonService(
                 operate=operate,
                 service_config_id=service.service_config_id,
             )

@@ -75,8 +75,11 @@ class TestTritonBot:
 
                 # Mock the operate app
                 mock_operate = Mock()
+                mock_operate_service = Mock()
+                mock_operate_service.name = "service"
+                mock_operate_service.service_config_id = "service1"
                 mock_operate.service_manager.return_value._get_all_services.return_value = [
-                    Mock(service_config_id="service1"),
+                    mock_operate_service,
                 ]
                 mock_operate_app.return_value = mock_operate
 
@@ -204,10 +207,10 @@ class TestTritonBot:
         mock_update.message.called_once_with(
             disable_web_page_preview=True,
             parse_mode=ParseMode.MARKDOWN,
-            text="""[operator1-service1] 10.5 OLAS [5/10]
+            text="""[operator1-service] 10.5 OLAS [5/10]
 Next epoch: 2025-07-21 12:00:00
 
-[operator2-service1] 10.5 OLAS [5/10]
+[operator2-service] 10.5 OLAS [5/10]
 Next epoch: 2025-07-21 12:00:00
 
 Total rewards = 21 OLAS [$52.5]""",
@@ -225,13 +228,13 @@ Total rewards = 21 OLAS [$52.5]""",
         mock_update.message.reply_text.assert_called_once_with(
             disable_web_page_preview=True,
             parse_mode=ParseMode.MARKDOWN,
-            text="""\\[operator1-service1]
+            text="""\\[operator1-service]
 [Agent EOA](https://gnosisscan.io/address/0xagent123) = 0.5 xDAI
 [Service Safe](https://gnosisscan.io/address/0xsafe456) = 2 xDAI  100 OLAS
 [Master EOA](https://gnosisscan.io/address/0xmaster789) = 1.5 xDAI
 [Master Safe](https://gnosisscan.io/address/0xmastersafe012) = 3 xDAI
 
-\\[operator2-service1]
+\\[operator2-service]
 [Agent EOA](https://gnosisscan.io/address/0xagent123) = 0.5 xDAI
 [Service Safe](https://gnosisscan.io/address/0xsafe456) = 2 xDAI  100 OLAS
 [Master EOA](https://gnosisscan.io/address/0xmaster789) = 1.5 xDAI
@@ -248,8 +251,8 @@ Total rewards = 21 OLAS [$52.5]""",
         
         # Verify the call
         mock_update.message.reply_text.assert_called_once_with(
-            text="""[operator1-service1] Sent the [claim transaction](https://gnosisscan.io/tx/0x123abc456def). Rewards will be sent to the Service Safe.
-[operator2-service1] Sent the [claim transaction](https://gnosisscan.io/tx/0x123abc456def). Rewards will be sent to the Service Safe."""
+            text="""[operator1-service] Sent the [claim transaction](https://gnosisscan.io/tx/0x123abc456def). Rewards will be sent to the Service Safe.
+[operator2-service] Sent the [claim transaction](https://gnosisscan.io/tx/0x123abc456def). Rewards will be sent to the Service Safe."""
         )
 
     def test_withdraw_handler(self, mock_triton_app, mock_update):
@@ -264,9 +267,9 @@ Total rewards = 21 OLAS [$52.5]""",
         mock_update.message.reply_text.assert_called_once_with(
             disable_web_page_preview=True,
             parse_mode=ParseMode.MARKDOWN,
-            text="""\\[operator1-service1] Sent the [withdrawal transaction](https://gnosisscan.io/tx/0x789ghi012jkl). 50 OLAS sent from the Service Safe to [0xwithdraw345](https://gnosisscan.io/address/0xwithdraw345) #withdraw
+            text="""\\[operator1-service] Sent the [withdrawal transaction](https://gnosisscan.io/tx/0x789ghi012jkl). 50 OLAS sent from the Service Safe to [0xwithdraw345](https://gnosisscan.io/address/0xwithdraw345) #withdraw
 
-\\[operator2-service1] Sent the [withdrawal transaction](https://gnosisscan.io/tx/0x789ghi012jkl). 50 OLAS sent from the Service Safe to [0xwithdraw345](https://gnosisscan.io/address/0xwithdraw345) #withdraw""",
+\\[operator2-service] Sent the [withdrawal transaction](https://gnosisscan.io/tx/0x789ghi012jkl). 50 OLAS sent from the Service Safe to [0xwithdraw345](https://gnosisscan.io/address/0xwithdraw345) #withdraw""",
         )
 
     def test_slots_handler(self, mock_triton_app, mock_update):
@@ -357,7 +360,7 @@ Total rewards = 21 OLAS [$52.5]""",
             if agent_balance < agent_threshold:
                 for operator in mock_config['operators']:
                     assert (
-                        f"[{operator}-service1] [Agent EOA](https://gnosisscan.io/address/{mock_service.agent_address}) balance is {agent_balance:g} xDAI"
+                        f"[{operator}-service] [Agent EOA](https://gnosisscan.io/address/{mock_service.agent_address}) balance is {agent_balance:g} xDAI"
                         in sent_messages
                     ), f"Expected agent balance message for balance {agent_balance}"
 
@@ -365,7 +368,7 @@ Total rewards = 21 OLAS [$52.5]""",
             if safe_balance < safe_threshold:
                 for operator in mock_config['operators']:
                     assert (
-                        f"[{operator}-service1] [Service Safe](https://gnosisscan.io/address/{mock_service.service_safe}) balance is {safe_balance:g} xDAI"
+                        f"[{operator}-service] [Service Safe](https://gnosisscan.io/address/{mock_service.service_safe}) balance is {safe_balance:g} xDAI"
                         in sent_messages
                     ), f"Expected safe balance message for balance {safe_balance}"
 
@@ -402,9 +405,9 @@ Total rewards = 21 OLAS [$52.5]""",
             call_kwargs = call_args_list[0].kwargs
             assert call_kwargs == {
                 "chat_id": call_kwargs['chat_id'],
-                "text": f"""\\[operator1-service1] (Autoclaim) Sent the [withdrawal transaction](https://gnosisscan.io/tx/0x789ghi012jkl). 50 OLAS sent from the Safe to [0xwithdraw345](https://gnosisscan.io/address/0xwithdraw345) #withdraw
+                "text": f"""\\[operator1-service] (Autoclaim) Sent the [withdrawal transaction](https://gnosisscan.io/tx/0x789ghi012jkl). 50 OLAS sent from the Safe to [0xwithdraw345](https://gnosisscan.io/address/0xwithdraw345) #withdraw
 
-\\[operator2-service1] (Autoclaim) Sent the [withdrawal transaction](https://gnosisscan.io/tx/0x789ghi012jkl). 50 OLAS sent from the Safe to [0xwithdraw345](https://gnosisscan.io/address/0xwithdraw345) #withdraw""",
+\\[operator2-service] (Autoclaim) Sent the [withdrawal transaction](https://gnosisscan.io/tx/0x789ghi012jkl). 50 OLAS sent from the Safe to [0xwithdraw345](https://gnosisscan.io/address/0xwithdraw345) #withdraw""",
                 "parse_mode": ParseMode.MARKDOWN,
                 "disable_web_page_preview": True,
             }
