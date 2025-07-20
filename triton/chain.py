@@ -64,10 +64,14 @@ def get_mech_request_count(
     """Get the number of requests made by a requester to a mech"""
     mech_contract = load_contract(mech_contract_address, "mech", has_abi_key=False)
     try:
-        mech_request_count = mech_contract.functions.mapRequestsCounts(requester_address).call()
+        mech_request_count = mech_contract.functions.mapRequestsCounts(
+            requester_address
+        ).call()
     except (ABIFunctionNotFound, ValueError):
         # Use mapRequestCounts for newer mechs
-        mech_request_count = mech_contract.functions.mapRequestCounts(requester_address).call()
+        mech_request_count = mech_contract.functions.mapRequestCounts(
+            requester_address
+        ).call()
 
     return mech_request_count
 

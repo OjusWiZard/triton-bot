@@ -43,14 +43,14 @@ update:
 
 .PHONY: formatters
 formatters:
-	black run.py triton
-	isort run.py triton
+	poetry run black run.py triton
+	poetry run isort --profile black run.py triton
 
 .PHONY: code-check
 code-check:
-	black --check run.py triton
-	isort --profile black --check run.py triton
-	darglint --verbosity 2 run.py triton
-	flake8 run.py triton
-	pylint run.py triton
-	mypy run.py triton
+	poetry run isort --profile black --check run.py triton
+	poetry run black --check run.py triton
+	poetry run darglint --verbosity 2 run.py triton
+	poetry run flake8 run.py triton
+	poetry run pylint run.py triton
+	poetry run mypy run.py triton

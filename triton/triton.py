@@ -1,9 +1,7 @@
-""""Triton Telegram bot"""
+""" "Triton Telegram bot"""
 
-import asyncio
 import datetime
 import logging
-import os
 import typing as t
 from pathlib import Path
 
@@ -23,12 +21,14 @@ from triton.constants import (
     AUTOCLAIM,
     AUTOCLAIM_DAY,
     AUTOCLAIM_HOUR_UTC,
+    CHAT_ID,
     GNOSISSCAN_ADDRESS_URL,
     GNOSISSCAN_TX_URL,
     LOCAL_TIMEZONE,
     MANUAL_CLAIM,
     OPERATE_USER_PASSWORD,
     SAFE_BALANCE_THRESHOLD,
+    TELEGRAM_TOKEN,
 )
 from triton.service import TritonService
 from triton.tools import escape_markdown_v2
@@ -37,9 +37,6 @@ logger = logging.getLogger("telegram_bot")
 
 # Secrets
 dotenv.load_dotenv(override=True)
-
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
 
 
 def run_triton() -> None:
@@ -75,9 +72,9 @@ def run_triton() -> None:
 
         olas_price = get_olas_price()
         rewards_value = total_rewards * olas_price if olas_price else None
-        message = f"Total rewards = {total_rewards:.2f} OLAS"
+        message = f"Total rewards = {total_rewards:g} OLAS"
         if rewards_value:
-            message += f" [${rewards_value:.2f}]"
+            message += f" [${rewards_value:g}]"
         messages.append(message)
 
         await update.message.reply_text(text=("\n\n").join(messages))
@@ -96,10 +93,10 @@ def run_triton() -> None:
                 r"\["
                 + escape_markdown_v2(service_name)
                 + r"]"
-                + f"\n[Agent EOA]({GNOSISSCAN_ADDRESS_URL.format(address=service.agent_address)}) = {agent_native_balance:.2f} xDAI"
-                + f"\n[Service Safe]({GNOSISSCAN_ADDRESS_URL.format(address=service.service_safe)}) = {safe_native_balance:.2f} xDAI  {safe_olas_balance:.2f} OLAS"
-                + f"\n[Master EOA]({GNOSISSCAN_ADDRESS_URL.format(address=service.master_wallet.crypto.address)}) = {master_eoa_native_balance:.2f} xDAI"
-                + f"\n[Master Safe]({GNOSISSCAN_ADDRESS_URL.format(address=service.master_wallet.safes[Chain.from_string(service.service.home_chain)])}) = {master_safe_native_balance:.2f} xDAI"
+                + f"\n[Agent EOA]({GNOSISSCAN_ADDRESS_URL.format(address=service.agent_address)}) = {agent_native_balance:g} xDAI"
+                + f"\n[Service Safe]({GNOSISSCAN_ADDRESS_URL.format(address=service.service_safe)}) = {safe_native_balance:g} xDAI  {safe_olas_balance:g} OLAS"
+                + f"\n[Master EOA]({GNOSISSCAN_ADDRESS_URL.format(address=service.master_wallet.crypto.address)}) = {master_eoa_native_balance:g} xDAI"
+                + f"\n[Master Safe]({GNOSISSCAN_ADDRESS_URL.format(address=service.master_wallet.safes[Chain.from_string(service.service.home_chain)])}) = {master_safe_native_balance:g} xDAI"
             )
 
             messages.append(message)
@@ -140,7 +137,7 @@ def run_triton() -> None:
                 r"\["
                 + escape_markdown_v2(service_name)
                 + r"] "
-                + f"Sent the [withdrawal transaction]({GNOSISSCAN_TX_URL.format(tx_hash=tx_hash)}). {value:.2f} OLAS sent from the Service Safe to [{service.withdrawal_address}]({GNOSISSCAN_ADDRESS_URL.format(address=service.withdrawal_address)}) #withdraw"
+                + f"Sent the [withdrawal transaction]({GNOSISSCAN_TX_URL.format(tx_hash=tx_hash)}). {value:g} OLAS sent from the Service Safe to [{service.withdrawal_address}]({GNOSISSCAN_ADDRESS_URL.format(address=service.withdrawal_address)}) #withdraw"
                 if tx_hash
                 else r"\["
                 + escape_markdown_v2(service_name)
@@ -201,7 +198,7 @@ def run_triton() -> None:
             safe_native_balance = balances["service_safe_native_balance"]
 
             if agent_native_balance < AGENT_BALANCE_THRESHOLD:
-                message = f"[{service_name}] [Agent EOA]({GNOSISSCAN_ADDRESS_URL.format(address=triton_service.agent_address)}) balance is {agent_native_balance:.2f} xDAI"
+                message = f"[{service_name}] [Agent EOA]({GNOSISSCAN_ADDRESS_URL.format(address=triton_service.agent_address)}) balance is {agent_native_balance:g} xDAI"
                 await context.bot.send_message(
                     chat_id=CHAT_ID,
                     text=message,
@@ -210,7 +207,7 @@ def run_triton() -> None:
                 )
 
             if safe_native_balance < SAFE_BALANCE_THRESHOLD:
-                message = f"[{service_name}] [Service Safe]({GNOSISSCAN_ADDRESS_URL.format(address=triton_service.service_safe)}) balance is {safe_native_balance:.2f} xDAI"
+                message = f"[{service_name}] [Service Safe]({GNOSISSCAN_ADDRESS_URL.format(address=triton_service.service_safe)}) balance is {safe_native_balance:g} xDAI"
                 await context.bot.send_message(
                     chat_id=CHAT_ID,
                     text=message,
@@ -246,9 +243,6 @@ def run_triton() -> None:
         for service in services.values():
             service.claim_rewards()
 
-        # Wait for confirmation
-        await asyncio.sleep(10)
-
         # Withdraw
         for service_name, service in services.items():
             tx_hash, value = service.withdraw_rewards()
@@ -256,7 +250,7 @@ def run_triton() -> None:
                 r"\["
                 + escape_markdown_v2(service_name)
                 + r"] "
-                + f"(Autoclaim) Sent the [withdrawal transaction]({GNOSISSCAN_TX_URL.format(tx_hash=tx_hash)}). {value:.2f} OLAS sent from the Safe to [{service.withdrawal_address}]({GNOSISSCAN_ADDRESS_URL.format(address=service.withdrawal_address)}) #withdraw"
+                + f"(Autoclaim) Sent the [withdrawal transaction]({GNOSISSCAN_TX_URL.format(tx_hash=tx_hash)}). {value:g} OLAS sent from the Safe to [{service.withdrawal_address}]({GNOSISSCAN_ADDRESS_URL.format(address=service.withdrawal_address)}) #withdraw"
                 if tx_hash
                 else r"\["
                 + escape_markdown_v2(service_name)
@@ -265,6 +259,10 @@ def run_triton() -> None:
             )
 
             messages.append(message)
+
+        if not messages:
+            logger.info("No rewards to withdraw")
+            return
 
         await context.bot.send_message(
             chat_id=CHAT_ID,
