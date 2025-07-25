@@ -1,6 +1,7 @@
 """Tests for triton.chain module"""
 import datetime
-from unittest.mock import patch, MagicMock, mock_open
+from http import HTTPStatus
+from unittest.mock import Mock, patch, MagicMock, mock_open
 import pytz
 from web3.exceptions import ABIFunctionNotFound
 
@@ -149,7 +150,8 @@ class TestGetStakingStatus:
     @patch('triton.chain.get_mech_request_count')
     @patch('triton.chain.load_contract')
     @patch('triton.chain.wei_to_olas')
-    def test_get_staking_status_success(self, mock_wei_to_olas, mock_load_contract, mock_get_mech_request_count):
+    @patch('triton.chain.requests.get')
+    def test_get_staking_status_success(self, mock_requests, mock_wei_to_olas, mock_load_contract, mock_get_mech_request_count):
         """Test successful staking status retrieval"""
         # Mock contracts
         mock_staking_contract = MagicMock()
@@ -190,6 +192,15 @@ class TestGetStakingStatus:
         mock_get_mech_request_count.return_value = 126
         mock_wei_to_olas.return_value = "1.00 OLAS"
         
+        mock_response = Mock()
+        mock_response.status_code = HTTPStatus.OK
+        mock_response.json.return_value = {
+            "name": "Staking Program 1",
+            "description": "Test staking program",
+            "available_staking_slots": 100
+        }
+        mock_requests.return_value = mock_response
+
         result = get_staking_status(
             "0x735FAAb1c4Ec41128c367AFb5c3baC73509f70bB",
             "0x9c7F6103e3a72E4d1805b9C683Ea5B370Ec1a99f",
@@ -205,6 +216,11 @@ class TestGetStakingStatus:
             1753007240 + 86400,
             pytz.timezone(LOCAL_TIMEZONE),
         ).strftime("%Y-%m-%d %H:%M:%S %Z")
+        assert result["metadata"] == {
+            "name": "Staking Program 1",
+            "description": "Test staking program",
+            "available_staking_slots": 100,
+        }
 
 
 class TestGetOlasPrice:

@@ -122,6 +122,9 @@ class TestTritonBot:
             "mech_requests_this_epoch": "5",
             "required_mech_requests": "10",
             "epoch_end": "2025-07-21 12:00:00",
+            "metadata": {
+                "name": "Staking Program 1",
+            }
         }
         service.check_balance.return_value = {
             "agent_eoa_native_balance": 0.5,
@@ -198,8 +201,14 @@ class TestTritonBot:
         """Test staking_status handler using the mock_triton_app fixture"""
         # Get the staking_status handler
         staking_status_handler = mock_triton_app('staking_status')
-        
-        with patch('triton.triton.get_olas_price', return_value=2.5):
+
+        with (
+            patch('triton.triton.get_olas_price', return_value=2.5),
+            patch('triton.chain.requests.get', side_effect=Mock(
+                status_code=200,
+                json=lambda: {"name": "Staking Program 1"}
+            )),
+        ):
             # Execute the handler
             asyncio.run(staking_status_handler(mock_update, None))
         
@@ -209,9 +218,11 @@ class TestTritonBot:
             disable_web_page_preview=True,
             parse_mode=ParseMode.MARKDOWN,
             text="""[operator1-service] 10.5 OLAS [5/10]
+Staking program: Staking Program 1
 Next epoch: 2025-07-21 12:00:00
 
 [operator2-service] 10.5 OLAS [5/10]
+Staking program: Staking Program 1
 Next epoch: 2025-07-21 12:00:00
 
 Total rewards = 21 OLAS [$52.5]""",

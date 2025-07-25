@@ -67,7 +67,9 @@ def run_triton() -> None:
             status = service.get_staking_status()
             total_rewards += float(status["accrued_rewards"].split(" ")[0])
             messages.append(
-                f"[{service_name}] {status['accrued_rewards']} [{status['mech_requests_this_epoch']}/{status['required_mech_requests']}]\nNext epoch: {status['epoch_end']}"
+                f"""[{service_name}] {status['accrued_rewards']} [{status['mech_requests_this_epoch']}/{status['required_mech_requests']}]
+Staking program: {status['metadata']['name']}
+Next epoch: {status['epoch_end']}"""
             )
 
         olas_price = get_olas_price()

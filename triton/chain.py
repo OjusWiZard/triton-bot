@@ -3,11 +3,13 @@ import json
 import logging
 import math
 import os
+from http import HTTPStatus
 from pathlib import Path
 
 import dotenv
 import pytz
 import requests
+from operate.constants import IPFS_ADDRESS
 from web3 import Web3
 from web3.contract import Contract
 from web3.exceptions import ABIFunctionNotFound
@@ -120,11 +122,21 @@ def get_staking_status(
         pytz.timezone(LOCAL_TIMEZONE),
     )
 
+    metadata_hash = staking_token_contract.functions.metadataHash().call().hex()
+    ipfs_address = IPFS_ADDRESS.format(hash=metadata_hash)
+    response = requests.get(ipfs_address)
+    if response.status_code != HTTPStatus.OK:
+        raise requests.RequestException(
+            f"Failed to fetch data from {ipfs_address}: {response.status_code}"
+        )
+    metadata = response.json()
+
     return {
         "accrued_rewards": accrued_rewards,
         "mech_requests_this_epoch": mech_requests_this_epoch,
         "required_mech_requests": mech_requests_24h_threshold,
         "epoch_end": epoch_end.strftime("%Y-%m-%d %H:%M:%S %Z"),
+        "metadata": metadata,
     }
 
 
