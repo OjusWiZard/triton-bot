@@ -39,7 +39,7 @@ logger = logging.getLogger("telegram_bot")
 dotenv.load_dotenv(override=True)
 
 
-def run_triton() -> None:
+def run_triton() -> None:  # pylint: disable=too-many-statements,too-many-locals
     """Main"""
 
     # Load configuration
@@ -51,7 +51,11 @@ def run_triton() -> None:
     for operator_name, operate_path in config["operators"].items():
         operate = OperateApp(Path(operate_path) / OPERATE)
         operate.password = OPERATE_USER_PASSWORD
-        for service in operate.service_manager()._get_all_services():
+        for (
+            service
+        ) in (
+            operate.service_manager()._get_all_services()  # pylint: disable=protected-access
+        ):
             services[f"{operator_name}-{service.name}"] = TritonService(
                 operate=operate,
                 service_config_id=service.service_config_id,
@@ -59,15 +63,17 @@ def run_triton() -> None:
 
     # Commands
     async def staking_status(
-        update: Update, context: ContextTypes.DEFAULT_TYPE
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,  # pylint: disable=unused-argument
     ) -> None:
         messages = []
-        total_rewards = 0
+        total_rewards = 0.0
         for service_name, service in services.items():
             status = service.get_staking_status()
             total_rewards += float(status["accrued_rewards"].split(" ")[0])
             messages.append(
-                f"""[{service_name}] {status['accrued_rewards']} [{status['mech_requests_this_epoch']}/{status['required_mech_requests']}]
+                f"[{service_name}] {status['accrued_rewards']} "
+                f"""[{status['mech_requests_this_epoch']}/{status['required_mech_requests']}]
 Staking program: {status['metadata']['name']}
 Next epoch: {status['epoch_end']}"""
             )
@@ -79,9 +85,15 @@ Next epoch: {status['epoch_end']}"""
             message += f" [${rewards_value:g}]"
         messages.append(message)
 
+        if update.message is None:
+            logger.error("Cannot send message, update.message is None")
+            return
+
         await update.message.reply_text(text=("\n\n").join(messages))
 
-    async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def balance(
+        update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):  # pylint: disable=unused-argument
         messages = []
         for service_name, service in services.items():
             balances = service.check_balance()
@@ -91,17 +103,24 @@ Next epoch: {status['epoch_end']}"""
             master_eoa_native_balance = balances["master_eoa_native_balance"]
             master_safe_native_balance = balances["master_safe_native_balance"]
 
+            if service.master_wallet.safes is None:
+                raise ValueError("Master wallet safes not found")
+
             message = (
                 r"\["
                 + escape_markdown_v2(service_name)
                 + r"]"
-                + f"\n[Agent EOA]({GNOSISSCAN_ADDRESS_URL.format(address=service.agent_address)}) = {agent_native_balance:g} xDAI"
-                + f"\n[Service Safe]({GNOSISSCAN_ADDRESS_URL.format(address=service.service_safe)}) = {safe_native_balance:g} xDAI  {safe_olas_balance:g} OLAS"
-                + f"\n[Master EOA]({GNOSISSCAN_ADDRESS_URL.format(address=service.master_wallet.crypto.address)}) = {master_eoa_native_balance:g} xDAI"
-                + f"\n[Master Safe]({GNOSISSCAN_ADDRESS_URL.format(address=service.master_wallet.safes[Chain.from_string(service.service.home_chain)])}) = {master_safe_native_balance:g} xDAI"
+                + f"\n[Agent EOA]({GNOSISSCAN_ADDRESS_URL.format(address=service.agent_address)}) = {agent_native_balance:g} xDAI"  # noqa: E501
+                + f"\n[Service Safe]({GNOSISSCAN_ADDRESS_URL.format(address=service.service_safe)}) = {safe_native_balance:g} xDAI  {safe_olas_balance:g} OLAS"  # noqa: E501
+                + f"\n[Master EOA]({GNOSISSCAN_ADDRESS_URL.format(address=service.master_wallet.crypto.address)}) = {master_eoa_native_balance:g} xDAI"  # noqa: E501
+                + f"\n[Master Safe]({GNOSISSCAN_ADDRESS_URL.format(address=service.master_wallet.safes[Chain.from_string(service.service.home_chain)])}) = {master_safe_native_balance:g} xDAI"  # type: ignore[attr-defined]  # noqa: E501
             )
 
             messages.append(message)
+
+        if update.message is None:
+            logger.error("Cannot send message, update.message is None")
+            return
 
         await update.message.reply_text(
             text=("\n\n").join(messages),
@@ -109,8 +128,14 @@ Next epoch: {status['epoch_end']}"""
             disable_web_page_preview=True,
         )
 
-    async def claim(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def claim(
+        update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):  # pylint: disable=unused-argument
         """Claim rewards"""
+
+        if not update.message:
+            logger.error("Cannot send message, update.message is None")
+            return
 
         if not MANUAL_CLAIM:
             await update.message.reply_text(text="Manual claim is disabled")
@@ -123,15 +148,22 @@ Next epoch: {status['epoch_end']}"""
                 continue
 
             messages.append(
-                f"[{service_name}] Sent the [claim transaction]({GNOSISSCAN_TX_URL.format(tx_hash=tx_hash)}). Rewards will be sent to the Service Safe."
+                f"[{service_name}] Sent the [claim transaction]({GNOSISSCAN_TX_URL.format(tx_hash=tx_hash)}). "
+                "Rewards will be sent to the Service Safe."
             )
 
         await update.message.reply_text(
             text=("\n").join(messages),
         )
 
-    async def withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def withdraw(
+        update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):  # pylint: disable=unused-argument
         """Withdraw rewards"""
+        if not update.message:
+            logger.error("Cannot send message, update.message is None")
+            return
+
         messages = []
         for service_name, service in services.items():
             tx_hash, value = service.withdraw_rewards()
@@ -139,7 +171,9 @@ Next epoch: {status['epoch_end']}"""
                 r"\["
                 + escape_markdown_v2(service_name)
                 + r"] "
-                + f"Sent the [withdrawal transaction]({GNOSISSCAN_TX_URL.format(tx_hash=tx_hash)}). {value:g} OLAS sent from the Service Safe to [{service.withdrawal_address}]({GNOSISSCAN_ADDRESS_URL.format(address=service.withdrawal_address)}) #withdraw"
+                + f"Sent the [withdrawal transaction]({GNOSISSCAN_TX_URL.format(tx_hash=tx_hash)}). "
+                + f"{value:g} OLAS sent from the Service Safe to [{service.withdrawal_address}]"
+                + f"({GNOSISSCAN_ADDRESS_URL.format(address=service.withdrawal_address)}) #withdraw"
                 if tx_hash
                 else r"\["
                 + escape_markdown_v2(service_name)
@@ -155,7 +189,12 @@ Next epoch: {status['epoch_end']}"""
             disable_web_page_preview=True,
         )
 
-    async def slots(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def slots(
+        update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):  # pylint: disable=unused-argument
+        if not update.message:
+            logger.error("Cannot send message, update.message is None")
+            return
 
         slots = get_slots()
 
@@ -169,7 +208,11 @@ Next epoch: {status['epoch_end']}"""
         )
 
     async def scheduled_jobs(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        jobs = context.job_queue.jobs()
+        if not update.message:
+            logger.error("Cannot send message, update.message is None")
+            return
+
+        jobs = context.job_queue.jobs() if context.job_queue else []
 
         if not jobs:
             await update.message.reply_text("No scheduled jobs")
@@ -177,9 +220,13 @@ Next epoch: {status['epoch_end']}"""
 
         message = ""
         for job in jobs:
-            next_execution = job.next_t.astimezone(
-                pytz.timezone(LOCAL_TIMEZONE)
-            ).strftime("%Y-%m-%d %H:%M:%S %Z")
+            next_execution = (
+                job.next_t.astimezone(pytz.timezone(LOCAL_TIMEZONE)).strftime(
+                    "%Y-%m-%d %H:%M:%S %Z"
+                )
+                if job.next_t
+                else "N/A"
+            )
             message += f"• {job.name}: {next_execution}\n"
 
         await update.message.reply_text(message)
@@ -200,7 +247,7 @@ Next epoch: {status['epoch_end']}"""
             safe_native_balance = balances["service_safe_native_balance"]
 
             if agent_native_balance < AGENT_BALANCE_THRESHOLD:
-                message = f"[{service_name}] [Agent EOA]({GNOSISSCAN_ADDRESS_URL.format(address=triton_service.agent_address)}) balance is {agent_native_balance:g} xDAI"
+                message = f"[{service_name}] [Agent EOA]({GNOSISSCAN_ADDRESS_URL.format(address=triton_service.agent_address)}) balance is {agent_native_balance:g} xDAI"  # noqa: E501
                 await context.bot.send_message(
                     chat_id=CHAT_ID,
                     text=message,
@@ -209,7 +256,7 @@ Next epoch: {status['epoch_end']}"""
                 )
 
             if safe_native_balance < SAFE_BALANCE_THRESHOLD:
-                message = f"[{service_name}] [Service Safe]({GNOSISSCAN_ADDRESS_URL.format(address=triton_service.service_safe)}) balance is {safe_native_balance:g} xDAI"
+                message = f"[{service_name}] [Service Safe]({GNOSISSCAN_ADDRESS_URL.format(address=triton_service.service_safe)}) balance is {safe_native_balance:g} xDAI"  # noqa: E501
                 await context.bot.send_message(
                     chat_id=CHAT_ID,
                     text=message,
@@ -252,7 +299,9 @@ Next epoch: {status['epoch_end']}"""
                 r"\["
                 + escape_markdown_v2(service_name)
                 + r"] "
-                + f"(Autoclaim) Sent the [withdrawal transaction]({GNOSISSCAN_TX_URL.format(tx_hash=tx_hash)}). {value:g} OLAS sent from the Safe to [{service.withdrawal_address}]({GNOSISSCAN_ADDRESS_URL.format(address=service.withdrawal_address)}) #withdraw"
+                + f"(Autoclaim) Sent the [withdrawal transaction]({GNOSISSCAN_TX_URL.format(tx_hash=tx_hash)}). "
+                + f"{value:g} OLAS sent from the Safe to [{service.withdrawal_address}]"
+                + f"({GNOSISSCAN_ADDRESS_URL.format(address=service.withdrawal_address)}) #withdraw"
                 if tx_hash
                 else r"\["
                 + escape_markdown_v2(service_name)
@@ -275,6 +324,9 @@ Next epoch: {status['epoch_end']}"""
 
     # Create bot
     app = Application.builder().token(TELEGRAM_TOKEN).post_init(post_init).build()
+    if app.job_queue is None:
+        raise RuntimeError("Job queue is not available")
+
     job_queue = app.job_queue
 
     # Add commands
