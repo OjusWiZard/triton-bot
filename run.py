@@ -1,3 +1,5 @@
+"""Entrypoint of the Triton Bot."""
+
 import logging
 
 from triton.triton import run_triton

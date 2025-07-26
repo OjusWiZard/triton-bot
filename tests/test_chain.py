@@ -25,6 +25,7 @@ class TestGetNativeBalance:
     def test_get_native_balance_success(self, mock_web3):
         """Test successful native balance retrieval"""
         mock_web3.eth.get_balance.return_value = 1000000000000000000  # 1 ETH in wei
+        mock_web3.to_checksum_address = lambda x: x
         mock_web3.from_wei.return_value = 1.0
         
         result = get_native_balance("0x1234567890abcdef1234567890abcdef12345678")
@@ -53,6 +54,7 @@ class TestLoadContract:
         """Test loading contract with ABI key"""
         mock_contract = MagicMock()
         mock_web3.eth.contract.return_value = mock_contract
+        mock_web3.to_checksum_address = lambda x: x
         
         result = load_contract("0x1234567890abcdef1234567890abcdef12345678", "test", True)
         
@@ -68,6 +70,7 @@ class TestLoadContract:
         """Test loading contract without ABI key"""
         mock_contract = MagicMock()
         mock_web3.eth.contract.return_value = mock_contract
+        mock_web3.to_checksum_address = lambda x: x
         
         result = load_contract("0x1234567890abcdef1234567890abcdef12345678", "test", False)
         

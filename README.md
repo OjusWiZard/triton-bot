@@ -60,7 +60,7 @@ Point triton to all your trader_quickstart folder locations (they have to contai
     - `WITHDRAWAL_ADDRESS`: optional. An address to send your rewards to.
     - `AGENT_BALANCE_THRESHOLD`: if the agent balance goes lower than this, you will receive an alert.
     - `SAFE_BALANCE_THRESHOLD`: if the safe balance goes lower than this, you will receive an alert.
-    - `MANUAL_CLAIM`: enable manual claiming command. Defaults to false.
+    - `MANUAL_CLAIM`: enable manual claiming command. Defaults to true.
     - `AUTOCLAIM`: enable automatic claiming command (claims once per month). Defaults to false.
     - `AUTOCLAIM_DAY`: day of the month for the autoclaim task to run.
     - `AUTOCLAIM_HOUR_UTC`: UTC hour for the autoclaim task to run.

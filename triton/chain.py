@@ -1,3 +1,6 @@
+"""Chain Module
+This module provides functions to interact with the blockchain."""
+
 import datetime
 import json
 import logging
@@ -5,6 +8,8 @@ import math
 import os
 from http import HTTPStatus
 from pathlib import Path
+from typing import cast
+from urllib.parse import urlencode
 
 import dotenv
 import pytz
@@ -34,7 +39,7 @@ web3 = Web3(Web3.HTTPProvider(GNOSIS_RPC))
 
 def get_native_balance(address: str):
     """Get the native balance"""
-    balance_wei = web3.eth.get_balance(address)
+    balance_wei = web3.eth.get_balance(web3.to_checksum_address(address))
     balance_ether = web3.from_wei(balance_wei, "ether")
     return balance_ether
 
@@ -43,12 +48,14 @@ def load_contract(
     contract_address: str, abi_file: str, has_abi_key: bool = True
 ) -> Contract:
     """Load a smart contract"""
-    with open(Path("abis", f"{abi_file}.json"), "r", encoding="utf-8") as abi_file:
-        contract_abi = json.load(abi_file)
+    with open(Path("abis", f"{abi_file}.json"), "r", encoding="utf-8") as f:
+        contract_abi = json.load(f)
         if has_abi_key:
             contract_abi = contract_abi["abi"]
 
-    contract = web3.eth.contract(address=contract_address, abi=contract_abi)
+    contract = web3.eth.contract(
+        address=web3.to_checksum_address(contract_address), abi=contract_abi
+    )
     return contract
 
 
@@ -78,7 +85,7 @@ def get_mech_request_count(
     return mech_request_count
 
 
-def get_staking_status(
+def get_staking_status(  # pylint: disable=too-many-locals
     mech_contract_address: str,
     staking_token_address: str,
     activity_checker_address: str,
@@ -124,7 +131,7 @@ def get_staking_status(
 
     metadata_hash = staking_token_contract.functions.metadataHash().call().hex()
     ipfs_address = IPFS_ADDRESS.format(hash=metadata_hash)
-    response = requests.get(ipfs_address)
+    response = requests.get(ipfs_address, timeout=30)
     if response.status_code != HTTPStatus.OK:
         raise requests.RequestException(
             f"Failed to fetch data from {ipfs_address}: {response.status_code}"
@@ -140,9 +147,15 @@ def get_staking_status(
     }
 
 
-def get_olas_price() -> float:
+def get_olas_price() -> float | None:
     """Get OLAS price"""
-    url = f"https://api.coingecko.com/api/v3/simple/price?ids=autonolas&vs_currencies=usd&x_cg_demo_api_key={COINGECKO_API_KEY}"
+    url = "https://api.coingecko.com/api/v3/simple/price?" + urlencode(
+        {
+            "ids": "autonolas",
+            "vs_currencies": "usd",
+            "x_cg_demo_api_key": COINGECKO_API_KEY,
+        }
+    )
     headers = {"accept": "application/json"}
     response = requests.get(url=url, headers=headers, timeout=30)
     if response.status_code != 200:
@@ -158,9 +171,9 @@ def get_slots() -> dict:
 
     for contract_name, contract_data in STAKING_CONTRACTS.items():
         staking_token_contract = load_contract(
-            web3.to_checksum_address(contract_data["address"]), "staking_token"
+            cast(str, contract_data["address"]), "staking_token"
         )
         ids = staking_token_contract.functions.getServiceIds().call()
-        slots[contract_name] = contract_data["slots"] - len(ids)
+        slots[contract_name] = cast(int, contract_data["slots"]) - len(ids)
 
     return slots

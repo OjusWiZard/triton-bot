@@ -1,3 +1,7 @@
+"""Triton Service Module.
+This module defines the TritonService class, which handles the operations of the Triton bot service.
+"""
+
 import logging
 import os
 import tempfile
@@ -62,17 +66,21 @@ class TritonService:
     def staking_contract_address(self) -> str:
         """Get the staking contract address"""
         try:
-            current_staking_program = self.service_manager._get_current_staking_program(
+            current_staking_program = self.service_manager._get_current_staking_program(  # pylint: disable=protected-access  # noqa: E501
                 service=self.service, chain=self.service.home_chain
             )
-            return get_staking_contract(
+            staking_contract_address = get_staking_contract(
                 chain=self.service.home_chain,
                 staking_program_id=current_staking_program,
             )
-        except KeyError:
-            raise ValueError(
-                f"Failed to get staking contract address. {traceback.format_exc()}"
-            )
+            if not staking_contract_address:
+                raise ValueError(
+                    f"Staking contract address not found for {current_staking_program=}."
+                )
+
+            return staking_contract_address
+        except KeyError as e:
+            raise ValueError("Failed to get staking contract address.") from e
 
     def get_staking_status(self) -> dict:
         """Get the staking status"""
@@ -88,8 +96,8 @@ class TritonService:
                 staking_contract=staking_contract_address
             )
             activity_checker_contract_address = staking_params["activity_checker"]
-        except KeyError:
-            raise ValueError(f"Failed to get staking status. {traceback.format_exc()}")
+        except KeyError as e:
+            raise ValueError("Failed to get staking status.") from e
 
         try:
             requester_activity_checker = cast(
@@ -106,7 +114,7 @@ class TritonService:
                 .functions.mechMarketplace()
                 .call()
             )
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             try:
                 mech_activity_contract = cast(
                     MechActivityContract,
@@ -122,7 +130,7 @@ class TritonService:
                     .functions.agentMech()
                     .call()
                 )
-            except Exception:
+            except Exception:  # pylint: disable=broad-except
                 mech = "0x77af31De935740567Cf4fF1986D04B2c964A786a"
 
         return get_staking_status(
@@ -139,18 +147,24 @@ class TritonService:
         if len(chain_config.chain_data.instances) == 0:
             raise ValueError("No agent instances found in the chain configuration")
 
+        if self.master_wallet.safes is None:
+            raise ValueError("Master wallet safes not found")
+
         agent_eoa_native_balance = get_native_balance(self.agent_address)
         service_safe_native_balance = get_native_balance(self.service_safe)
         master_eoa_native_balance = get_native_balance(
             self.master_wallet.crypto.address
         )
         master_safe_native_balance = get_native_balance(
-            self.master_wallet.safes[Chain.from_string(self.service.home_chain)]
+            self.master_wallet.safes[Chain.from_string(self.service.home_chain)]  # type: ignore[attr-defined]
         )
         service_safe_olas_balance = get_olas_balance(self.service_safe) / 1e18
 
         self.logger.info(
-            "Agent EOA balance = %.2f xDAI | Service Safe balance: %.2f xDAI  %.2f OLAS | Master EOA balance: %.2f xDAI | Master Safe balance: %.2f xDAI",
+            "Agent EOA balance = %.2f xDAI "
+            "| Service Safe balance: %.2f xDAI  %.2f OLAS "
+            "| Master EOA balance: %.2f xDAI "
+            "| Master Safe balance: %.2f xDAI",
             agent_eoa_native_balance,
             service_safe_native_balance,
             service_safe_olas_balance,
@@ -175,9 +189,11 @@ class TritonService:
                 service_config_id=self.service.service_config_id,
                 chain=self.service.home_chain,
             )
-            return tx_hash.hex()
-        except Exception:
-            self.logger.error(f"Failed to claim rewards. {traceback.format_exc()}")
+            return tx_hash.hex()  # type: ignore[attr-defined]
+        except Exception:  # pylint: disable=broad-except
+            self.logger.error("Failed to claim rewards. %s", traceback.format_exc())
+
+        return None
 
     def withdraw_rewards(self) -> Tuple[Optional[str], float]:
         """Withdraw staking rewards"""
@@ -187,16 +203,18 @@ class TritonService:
 
         try:
             service_safe_olas_balance = get_olas_balance(self.service_safe)
-        except Exception:
-            self.logger.error(f"Failed to get OLAS balance. {traceback.format_exc()}")
+        except Exception:  # pylint: disable=broad-except
+            self.logger.error("Failed to get OLAS balance. %s", traceback.format_exc())
             return None, 0
 
         if not service_safe_olas_balance:
             self.logger.info("No OLAS to withdraw")
             return None, 0
 
-        self.logger.info(f"Withdrawing {service_safe_olas_balance / 1e18} OLAS rewards")
-        home_chain = Chain.from_string(self.service.home_chain)
+        self.logger.info(
+            "Withdrawing %.2f OLAS rewards", service_safe_olas_balance / 1e18
+        )
+        home_chain = Chain.from_string(self.service.home_chain)  # type: ignore[attr-defined]
         olas_address = OLAS[home_chain]
         agent_eoa_key = self.service.keys[0]
         with tempfile.NamedTemporaryFile() as agent_eoa_private_key:
@@ -216,8 +234,8 @@ class TritonService:
                 to=self.withdrawal_address,
                 amount=service_safe_olas_balance,
             )
-        except Exception:
-            self.logger.error(f"Failed to withdraw OLAS. {traceback.format_exc()}")
+        except Exception:  # pylint: disable=broad-except
+            self.logger.error("Failed to withdraw OLAS. %s", traceback.format_exc())
             return None, 0
 
         return tx_hash, service_safe_olas_balance / 1e18

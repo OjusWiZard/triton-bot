@@ -15,7 +15,7 @@ GNOSISSCAN_TX_URL = GNOSISSCAN_URL + "/tx/{tx_hash}"
 AGENT_BALANCE_THRESHOLD = float(os.getenv("AGENT_BALANCE_THRESHOLD", "0.1"))
 SAFE_BALANCE_THRESHOLD = float(os.getenv("SAFE_BALANCE_THRESHOLD", "1"))
 AUTOCLAIM = str_to_bool(os.getenv("AUTOCLAIM", "false"))
-MANUAL_CLAIM = str_to_bool(os.getenv("MANUAL_CLAIM", "false"))
+MANUAL_CLAIM = str_to_bool(os.getenv("MANUAL_CLAIM", "true"))
 OLAS_TOKEN_ADDRESS_GNOSIS = "0xcE11e14225575945b8E6Dc0D4F2dD4C570f79d9f"
 AUTOCLAIM_DAY = int(os.getenv("AUTOCLAIM_DAY", "1"))
 AUTOCLAIM_HOUR_UTC = int(os.getenv("AUTOCLAIM_HOUR_UTC", "9"))
@@ -59,5 +59,5 @@ STAKING_CONTRACTS = {
         "slots": 26,
     },
 }
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
+CHAT_ID = os.getenv("CHAT_ID", "")

@@ -288,21 +288,26 @@ Total rewards = 21 OLAS [$52.5]""",
         """Test slots handler using the mock_triton_app fixture"""
         # Get the slots handler
         slots_handler = mock_triton_app('slots')
-        
-        # Execute the handler
-        asyncio.run(slots_handler(mock_update, None))
+
+        with (
+            patch('triton.chain.load_contract', return_value=Mock()),
+            patch('triton.chain.len', return_value=0),
+        ):
+            # Execute the handler
+            asyncio.run(slots_handler(mock_update, None))
         
         # Verify the call
-        msg_text = mock_update.message.reply_text.call_args.kwargs['text']
-        assert re.match(r"""^\[Hobbyist \(100 OLAS\)\] (\d)+ available slots
-\[Hobbyist 2 \(500 OLAS\)\] (\d)+ available slots
-\[Expert \(1k OLAS\)\] (\d)+ available slots
-\[Expert 2 \(1k OLAS\)\] (\d)+ available slots
-\[Expert 3 \(2k OLAS\)\] (\d)+ available slots
-\[Expert 4 \(10k OLAS\)\] (\d)+ available slots
-\[Expert 5 \(10k OLAS\)\] (\d)+ available slots
-\[Expert 6 \(1k OLAS\)\] (\d)+ available slots
-\[Expert 7 \(10k OLAS\)\] (\d)+ available slots$""", msg_text)
+        mock_update.message.reply_text.assert_called_once_with(
+            text="""[Hobbyist (100 OLAS)] 100 available slots
+[Hobbyist 2 (500 OLAS)] 50 available slots
+[Expert (1k OLAS)] 20 available slots
+[Expert 2 (1k OLAS)] 40 available slots
+[Expert 3 (2k OLAS)] 20 available slots
+[Expert 4 (10k OLAS)] 26 available slots
+[Expert 5 (10k OLAS)] 26 available slots
+[Expert 6 (1k OLAS)] 40 available slots
+[Expert 7 (10k OLAS)] 26 available slots"""
+        )
 
     def test_scheduled_jobs_handler_empty(self, mock_triton_app, mock_update, mock_context):
         """Test scheduled_jobs handler with no jobs using the mock_triton_app fixture"""
