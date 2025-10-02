@@ -17,7 +17,7 @@ import requests
 from operate.constants import IPFS_ADDRESS
 from web3 import Web3
 from web3.contract import Contract
-from web3.exceptions import ABIFunctionNotFound
+from web3.exceptions import ABIFunctionNotFound, ContractLogicError
 
 from triton.constants import (
     LOCAL_TIMEZONE,
@@ -76,7 +76,7 @@ def get_mech_request_count(
         mech_request_count = mech_contract.functions.mapRequestsCounts(
             requester_address
         ).call()
-    except (ABIFunctionNotFound, ValueError):
+    except (ContractLogicError, ABIFunctionNotFound, ValueError):
         # Use mapRequestCounts for newer mechs
         mech_request_count = mech_contract.functions.mapRequestCounts(
             requester_address
